@@ -1,11 +1,15 @@
 package il.ac.technion.cs.sd.buy.app;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Product{
     private String productID;
     private Integer price;
     private Integer totalAmountBought = 0;
     private Double averageAmountBought;
     private Integer numberOfOrders = 0;
+    private List<Order> orderList = new ArrayList<>();
     public Product(String productID, Integer price){
         this.productID = productID;
         this.price = price;
@@ -23,8 +27,9 @@ public class Product{
         return price;
     }
 
-    public void addPurchase(Integer new_amount){
-        totalAmountBought += new_amount;
+    public void addPurchase(Order ord){
+        orderList.add(ord);
+        totalAmountBought += ord.getAmount();
         numberOfOrders++;
     }
     public void calcAverageAmountBought(){
@@ -34,6 +39,15 @@ public class Product{
         else{
             averageAmountBought = (double) (totalAmountBought / numberOfOrders);
         }
+    }
+    public Double getAverageAmountBought(){
+        return averageAmountBought;
+    }
+    public Integer getTotalAmountBought(){
+        return totalAmountBought;
+    }
+    public List<Order> getOrderList(){
+        return orderList;
     }
     public void setPrice(Integer price) {
         this.price = price;

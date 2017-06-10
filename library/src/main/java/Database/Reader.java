@@ -43,7 +43,6 @@ public class Reader{
 
 
         st.thenCompose(fls -> insertInFuture(fls, stringsArray));
-
     }
 
 

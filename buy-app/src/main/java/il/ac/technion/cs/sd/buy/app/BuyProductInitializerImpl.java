@@ -121,21 +121,113 @@ public class BuyProductInitializerImpl implements BuyProductInitializer {
     private void updateProductsWithAmountData(){
         orderMap.forEach((orderID,order)->{
             Product curr_prod = productMap.get(order.getProductID());
-            curr_prod.addPurchase(order.getAmount());
+            curr_prod.addPurchase(order);
         });
         productMap.forEach((prodID,product)-> product.calcAverageAmountBought());
     }
+    private Integer getBooleanValue(boolean condition){
+        if(condition)
+            return 1;
+        else
+            return 0;
+    }
     private List<String> buildLinesForOrderFile(){
+        final String[] line = new String[1];
+        final Integer[] isCancelled = new Integer[1];
+        final Integer[] isModified = new Integer[1];
+        List<String> lines = new ArrayList<>();
         orderMap.forEach((orderID,order)->{
-            //TODO
+            isCancelled[0] = getBooleanValue(order.isCancelled());
+            isModified[0] = getBooleanValue(order.isModified());
+            line[0] = order.getOrderID() + " " + order.getAmount().toString() + " " +
+                    isCancelled[0] + " " + isModified[0];
+            lines.add(line[0]);
         });
-        return null;
+        return lines;
+    }
+    private List<String> buildLinesForProductFile(){
+        final String[] line = new String[1];
+        List<String> lines = new ArrayList<>();
+        productMap.forEach((productID,product) -> {
+            line[0] = product.getProductID() + " " + product.getAverageAmountBought() + " "
+                    + product.getTotalAmountBought() + ",";
+            product.getOrderList().forEach((ord) -> {
+                line[0] += ord.getUserID() + "-" + ord.getAmount() + " ";
+            });
+            lines.add(line[0]);
+        });
+        return lines;
+    }
+    private List<String> buildLinesForProdOrderListFile(){
+        final String[] line = new String[1];
+        List<String> lines = new ArrayList<>();
+        productMap.forEach((productID,product) -> {
+            line[0] = product.getProductID() + ",";
+            product.getOrderList().forEach((ord) -> {
+                line[0] += ord.getOrderID()+ " ";
+            });
+            lines.add(line[0]);
+        });
+        return lines;
+    }
+    private List<String> buildIndexFile(List<String> listToIndex){
+        final String[] line = new String[1];
+        List<String> lines = new ArrayList<>();
+        final String[] ID = new String[1];
+        final Integer[] i = {0};
+        listToIndex.forEach((lineInFile)->{
+            i[0]++;
+            line[0] = lineInFile.split(" ")[0] + " " + i[0].toString();
+            lines.add(line[0]);
+        });
+        return lines;
+    }
+    private List<String> buildLinesForUserProdListFile(){
+        final String[] line = new String[1];
+        List<String> lines = new ArrayList<>();
+        userMap.forEach((userID,user) -> {
+            line[0] = userID + ",";
+            user.getOrderList().forEach((order)->{
+                line[0] += order.getProductID() + "-" + order.getAmount()+ " ";
+            });
+            lines.add(line[0]);
+        });
+        return lines;
+    }
+    private List<String> buildLinesForUserDataFile(){
+        final String[] line = new String[1];
+        List<String> lines = new ArrayList<>();
+        userMap.forEach((userID,user) -> {
+            line[0] = userID + " " + user.getCountOrders() + " " + user.getCountCancelledOrders() + " "
+                    + user.getCountModifiedOrders() + " " + user.getTotalAmountSpent() + ",";
+            user.getOrderList().forEach((order)->{
+                line[0] += order.getOrderID() + " ";
+            });
+            lines.add(line[0]);
+        });
+        return lines;
+    }
+    private void insertToReader(Reader chosen_reader, List<String> content){
+        chosen_reader.insertStrings(content,false);
     }
     private void setup(){
         removeInvalidOrders();
         initializeUserDB();
         updateProductsWithAmountData();
-        List<String> orderFileLines = buildLinesForOrderFile();
+        List<String> orderLines = buildLinesForOrderFile();
+        List<String> productDataLines = buildLinesForProductFile();
+        List<String> prodOrderListlines = buildLinesForProdOrderListFile();
+        List<String> prodIndexLines = buildIndexFile(productDataLines);
+        List<String> userProdListLines = buildLinesForUserProdListFile();
+        List<String> userDataLines = buildLinesForUserDataFile();
+        List<String> userIndexLines = buildIndexFile(userDataLines);
+        insertToReader(orderReader,orderLines);
+        insertToReader(productDataReader,productDataLines);
+        insertToReader(productOrderlistReader,prodOrderListlines);
+        insertToReader(productIndexReader,prodIndexLines);
+        insertToReader(userDataReader,userDataLines);
+        insertToReader(userProdlistReader,userProdListLines);
+        insertToReader(userIndexReader,userIndexLines);
     }
     @Override
     public CompletableFuture<Void> setupXml(String xmlData) {

@@ -11,6 +11,23 @@ public class User {
     private Integer countOrders;
     private Integer countCancelledOrders;
     private Integer countModifiedOrders;
+
+    public Integer getCountOrders() {
+        return countOrders;
+    }
+
+    public Integer getCountCancelledOrders() {
+        return countCancelledOrders;
+    }
+
+    public Integer getCountModifiedOrders() {
+        return countModifiedOrders;
+    }
+
+    public Integer getTotalAmountSpent() {
+        return totalAmountSpent;
+    }
+
     private Integer totalAmountSpent;
     private List<Order> orderList = new ArrayList<>();
     public User(String userID){
@@ -30,5 +47,8 @@ public class User {
         }
         totalAmountSpent += price*new_order.getAmount();
         orderList.add(new_order);
+    }
+    public List<Order> getOrderList(){
+        return orderList;
     }
 }
