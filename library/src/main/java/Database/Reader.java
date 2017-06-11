@@ -3,26 +3,19 @@
  */
 package Database;
 
-import com.google.inject.Guice;
-import com.google.inject.Inject;
-import com.google.inject.Injector;
 import il.ac.technion.cs.sd.buy.ext.FutureLineStorage;
 import il.ac.technion.cs.sd.buy.ext.FutureLineStorageFactory;
-import il.ac.technion.cs.sd.buy.ext.LineStorageModule;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
-public class Reader{
+public class Reader {
     private CompletableFuture<FutureLineStorage> st = null;
-    @Inject
     public Reader(FutureLineStorageFactory st_factory, String filename) {
-        Injector injector = Guice.createInjector(new LineStorageModule());
-        FutureLineStorageFactory factory = injector.getInstance(FutureLineStorageFactory.class);
-        st = factory.open(filename);
+        st = st_factory.open(filename);
     }
+
 
 
     private CompletableFuture<Void> insertInFuture(FutureLineStorage fls,String[] stringArray) {
@@ -42,12 +35,15 @@ public class Reader{
             Arrays.sort(stringsArray);
 
 
-        st.thenCompose(fls -> insertInFuture(fls, stringsArray));
+        st = st.thenCompose(fls -> insertInFuture(fls, stringsArray)).thenCompose(v -> st);
+
     }
 
 
 
     private CompletableFuture<String> futureBinarySearch(int first, int last,String id, String delimiter, int index) {
+        if (first > last)
+            return CompletableFuture.completedFuture(null);
         int middle = first + (last - first) / 2;
         return st.thenCompose(fls -> fls.read(middle)).thenCompose(string -> {
             String[] keyValue = string.split(delimiter);
@@ -70,8 +66,15 @@ public class Reader{
     //get the info if you know the line number
     public CompletableFuture<String> find(int lineNum, String delimiter, int index) throws InterruptedException {
         //Add boundary checks
-        return st.thenCompose(fls -> fls.read(lineNum))
-                .thenCompose(string -> CompletableFuture.completedFuture(string.split(delimiter)[index]));
+        if (lineNum < 0)
+            return CompletableFuture.completedFuture(null);
+
+        return st.thenCompose(FutureLineStorage::numberOfLines)
+                .thenCompose(numOfLines -> lineNum >= numOfLines ? CompletableFuture.completedFuture(null) : st)
+                .thenCompose(fls -> (fls == null) ? CompletableFuture.completedFuture(null) : fls.read(lineNum))
+                .thenCompose(string ->
+                        string == null ? CompletableFuture.completedFuture(null) :
+                                CompletableFuture.completedFuture(string.split(delimiter)[index]));
 
 
     }
