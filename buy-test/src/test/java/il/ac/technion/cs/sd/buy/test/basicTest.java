@@ -17,9 +17,9 @@ public class basicTest {
 
     @Rule
     public Timeout globalTimeout = Timeout.seconds(20);
-    
-    @Test
-    public void testCorrectBuild(){
+}
+/*     @Test
+   public void testCorrectBuild(){
         String fileContents = null;
         try {
             fileContents =
@@ -32,6 +32,31 @@ public class basicTest {
         BuyProductInitializer bp = injector.getInstance(BuyProductInitializer.class);
         //BuyProductInitializerImpl bp = new BuyProductInitializerImpl();
         bp.setupJson(fileContents);
+    }*/
+/*
 
+    private static Injector setupAndGetInjector(String fileName) throws FileNotFoundException {
+        String fileContents =
+                new Scanner(new File(ExampleTest.class.getResource(fileName).getFile())).useDelimiter("\\Z").next();
+        Injector injector = Guice.createInjector(new BuyProductModule(), new LineStorageModule());
+        BuyProductInitializer bpi = injector.getInstance(BuyProductInitializer.class);
+        if (fileName.endsWith("xml"))
+            bpi.setupXml(fileContents);
+        else {
+            assert fileName.endsWith("json");
+            bpi.setupJson(fileContents);
+        }
+        return injector;
+    }
+
+    @Test
+    public void test1() throws FileNotFoundException {
+        Injector injector = setupAndGetInjector("small.json");
+    }
+
+    @Test
+    public void test2() throws FileNotFoundException {
+        Injector injector = setupAndGetInjector("small.xml");
     }
 }
+*/

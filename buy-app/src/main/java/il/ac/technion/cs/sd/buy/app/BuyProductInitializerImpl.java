@@ -8,6 +8,9 @@ import Database.Reader;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -17,9 +20,9 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 public class BuyProductInitializerImpl implements BuyProductInitializer {
-    private Map<String,Product> productMap = new HashMap<>();   //productID -> product
-    private Map<String,Order> orderMap = new HashMap<>();       //orderID -> order
-    private Map<String,User> userMap = new HashMap<>();
+    private Map<String,Product> productMap = new TreeMap<>();  //productID -> product
+    private Map<String,Order> orderMap = new TreeMap<>();       //orderID -> order
+    private Map<String,User> userMap = new TreeMap<>();
 
     public static String product_index_filename = "product_index";
     public static String product_data_filename = "product_data";
@@ -46,44 +49,41 @@ public class BuyProductInitializerImpl implements BuyProductInitializer {
         userDataReader = new Reader(lsf, user_data_filename);
         orderReader = new Reader(lsf, order_filename);
     }
-    private Document parseXML(String xmlData){
-        DocumentBuilderFactory dbFactory
-                = DocumentBuilderFactory.newInstance();
-        Document doc = null;
-        try {
-            DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-            doc = dBuilder.parse(new InputSource(new StringReader(xmlData)));
-            doc.getDocumentElement().normalize();
-        }
-        catch(Exception e){
-            e.printStackTrace();
-        }
-        return doc;
-    }
 
+    private void insertOrderToDBFromJson(JSONObject row){
+        String orderID = row.getString("order-id");
+        orderMap.put(orderID,new Order(orderID,row.getString("user-id"),row.getString("product-id"),
+                row.getLong("amount")));
+    }
+    private void insertProductToDBFromJson(JSONObject row){
+        String productID = row.getString("id");
+        productMap.put(productID,new Product(productID,row.getInt("price")));
+    }
+    private void insertCancelToDBFromJson(JSONObject row){
+        Order currOrd = orderMap.get(row.getString("order-id"));
+        if(currOrd != null) {
+            currOrd.cancel();
+        }
+    }
+    private void insertModifyToDBFromJson(JSONObject row){
+        Order currOrd = orderMap.get(row.getString("order-id"));
+        if(currOrd != null) {
+            currOrd.modify(row.getLong("amount"));
+        }
+    }
     private void handleAction(JSONObject row){
-        Order currOrd;
         switch(row.getString("type")){
             case "order":
-                String orderID = row.getString("order-id");
-                orderMap.put(orderID,new Order(orderID,row.getString("user-id"),row.getString("product-id"),
-                        row.getInt("amount")));
+                insertOrderToDBFromJson(row);
                 break;
             case "product":
-                String productID = row.getString("id");
-                productMap.put(productID,new Product(productID,row.getInt("price")));
+                insertProductToDBFromJson(row);
                 break;
             case "cancel-order":
-                currOrd = orderMap.get(row.getString("order-id"));
-                if(currOrd != null) {
-                    currOrd.cancel();
-                }
+                insertCancelToDBFromJson(row);
                 break;
             case "modify-order":
-                currOrd = orderMap.get(row.getString("order-id"));
-                if(currOrd != null) {
-                    currOrd.modify(row.getInt("amount"));
-                }
+                insertModifyToDBFromJson(row);
                 break;
         }
     }
@@ -139,8 +139,9 @@ public class BuyProductInitializerImpl implements BuyProductInitializer {
         orderMap.forEach((orderID,order)->{
             isCancelled[0] = getBooleanValue(order.isCancelled());
             isModified[0] = getBooleanValue(order.isModified());
-            line[0] = order.getOrderID() + " " + order.getAmount().toString() + " " +
-                    isCancelled[0] + " " + isModified[0];
+            line[0] = order.getOrderID() + "_" + order.getAmount().toString() + "_" +
+                    isCancelled[0] + "_" + isModified[0] + "_";
+            order.getListAmounts().forEach((amount)-> line[0]+= amount.toString() + ",");
             lines.add(line[0]);
         });
         return lines;
@@ -149,11 +150,10 @@ public class BuyProductInitializerImpl implements BuyProductInitializer {
         final String[] line = new String[1];
         List<String> lines = new ArrayList<>();
         productMap.forEach((productID,product) -> {
-            line[0] = product.getProductID() + " " + product.getAverageAmountBought() + " "
-                    + product.getTotalAmountBought() + ",";
-            product.getOrderList().forEach((ord) -> {
-                line[0] += ord.getUserID() + "-" + ord.getAmount() + " ";
-            });
+            line[0] = product.getProductID() + "_" + product.getAverageAmountBought() + "_"
+                    + product.calculateTotalAmountBought() + "_";
+            product.getUserAmountMap().forEach((userID,amount) -> line[0] += userID + "-"
+                + amount + ",");
             lines.add(line[0]);
         });
         return lines;
@@ -162,10 +162,8 @@ public class BuyProductInitializerImpl implements BuyProductInitializer {
         final String[] line = new String[1];
         List<String> lines = new ArrayList<>();
         productMap.forEach((productID,product) -> {
-            line[0] = product.getProductID() + ",";
-            product.getOrderList().forEach((ord) -> {
-                line[0] += ord.getOrderID()+ " ";
-            });
+            line[0] = product.getProductID() + "_";
+            product.getOrderList().forEach((ord) -> line[0] += ord.getOrderID()+ ",");
             lines.add(line[0]);
         });
         return lines;
@@ -173,11 +171,10 @@ public class BuyProductInitializerImpl implements BuyProductInitializer {
     private List<String> buildIndexFile(List<String> listToIndex){
         final String[] line = new String[1];
         List<String> lines = new ArrayList<>();
-        final String[] ID = new String[1];
         final Integer[] i = {0};
         listToIndex.forEach((lineInFile)->{
+            line[0] = lineInFile.split("_")[0] + "_" + i[0].toString();
             i[0]++;
-            line[0] = lineInFile.split(" ")[0] + " " + i[0].toString();
             lines.add(line[0]);
         });
         return lines;
@@ -186,9 +183,9 @@ public class BuyProductInitializerImpl implements BuyProductInitializer {
         final String[] line = new String[1];
         List<String> lines = new ArrayList<>();
         userMap.forEach((userID,user) -> {
-            line[0] = userID + ",";
-            user.getOrderList().forEach((order)->{
-                line[0] += order.getProductID() + "-" + order.getAmount()+ " ";
+            line[0] = userID + "_";
+            user.getProductAmountMap().forEach((prodID,amount)->{
+                line[0] += prodID + "-" + amount + ",";
             });
             lines.add(line[0]);
         });
@@ -198,11 +195,9 @@ public class BuyProductInitializerImpl implements BuyProductInitializer {
         final String[] line = new String[1];
         List<String> lines = new ArrayList<>();
         userMap.forEach((userID,user) -> {
-            line[0] = userID + " " + user.getCountOrders() + " " + user.getCountCancelledOrders() + " "
-                    + user.getCountModifiedOrders() + " " + user.getTotalAmountSpent() + ",";
-            user.getOrderList().forEach((order)->{
-                line[0] += order.getOrderID() + " ";
-            });
+            line[0] = userID + "_" + user.getCountOrders() + "_" + user.getCountCancelledOrders() + "_"
+                    + user.getCountModifiedOrders() + "_" + user.getTotalAmountSpent() + "_";
+            user.getOrderIdList().forEach((orderID)-> line[0] += orderID + ",");
             lines.add(line[0]);
         });
         return lines;
@@ -229,9 +224,78 @@ public class BuyProductInitializerImpl implements BuyProductInitializer {
         insertToReader(userProdlistReader,userProdListLines);
         insertToReader(userIndexReader,userIndexLines);
     }
+    private Document buildDocument(String xmlData){
+        DocumentBuilderFactory dbFactory
+                = DocumentBuilderFactory.newInstance();
+        Document doc = null;
+        try {
+            DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+            doc = dBuilder.parse(new InputSource(new StringReader(xmlData)));
+            doc.getDocumentElement().normalize();
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+        return doc;
+    }
+    private void insertOrderToDBFromXML(Element currElement){
+        String orderID = getElementContent(currElement,"order-id");
+        String userID = getElementContent(currElement,"user-id");
+        String prodID = getElementContent(currElement,"product-id");
+        Long amount = Long.parseLong(getElementContent(currElement,"amount"));
+        orderMap.put(orderID,new Order(orderID,userID,prodID,
+                amount));
+    }
+    private void insertProductToDBFromXML(Element currElement){
+        String productID = getElementContent(currElement,"id");
+        Integer price = Integer.parseInt(getElementContent(currElement,"price"));
+        productMap.put(productID,new Product(productID,price));
+    }
+    private void insertCancelToDBFromXML(Element currElement){
+        String orderID = getElementContent(currElement,"order-id");
+        Order currOrd = orderMap.get(orderID);
+        if(currOrd != null) {
+            currOrd.cancel();
+        }
+    }
+    private void insertModifyToDBFromXML(Element currElement){
+        String orderID = getElementContent(currElement,"order-id");
+        Long amount = Long.parseLong(getElementContent(currElement,"new-amount"));
+        Order currOrd = orderMap.get(orderID);
+        if(currOrd != null) {
+            currOrd.modify(amount);
+        }
+    }
+    private String getElementContent(Element e, String name){
+        return e.getElementsByTagName(name).item(0).getTextContent();
+    }
+    private void parseXML(String xmlData){
+        Document doc = buildDocument(xmlData);
+        doc.normalize();
+        NodeList nodeList = doc.getDocumentElement().getChildNodes();
+        for (int temp = 0; temp < nodeList.getLength(); temp++) {
+            Node node = nodeList.item(temp);
+            if (node.getNodeType() == Node.ELEMENT_NODE) {
+                Element currElement = (Element)node;
+                switch(node.getNodeName()){
+                    case "Order":
+                        insertOrderToDBFromXML(currElement);
+                        break;
+                    case "Product":
+                        insertProductToDBFromXML(currElement);
+                        break;
+                    case "CancelOrder":
+                        insertCancelToDBFromXML(currElement);
+                        break;
+                    case "ModifyOrder":
+                        insertModifyToDBFromXML(currElement);
+                        break;
+            }}
+        }
+    }
     @Override
     public CompletableFuture<Void> setupXml(String xmlData) {
-        Document doc = parseXML(xmlData);
+        parseXML(xmlData);
         setup();
         return null;
     }

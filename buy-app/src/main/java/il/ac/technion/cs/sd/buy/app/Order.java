@@ -7,13 +7,18 @@ public class Order{
     private String orderID;
     private String userID;
     private String productID;
-    private Integer amount;
+    private Long amount;
     private boolean isValid = false;
     private boolean isModified = false;
-    private boolean isCancelled = false;
-    private List<Integer> listAmounts = new ArrayList<>();
 
-    public Order(String orderID, String userID, String productID, Integer amount) {
+    public List<Long> getListAmounts() {
+        return listAmounts;
+    }
+
+    private boolean isCancelled = false;
+    private List<Long> listAmounts = new ArrayList<>();
+
+    public Order(String orderID, String userID, String productID, Long amount) {
         this.orderID = orderID;
         this.userID = userID;
         this.productID = productID;
@@ -26,9 +31,9 @@ public class Order{
             return;
         }
         isCancelled = true;
-        listAmounts.add(-1);
+        listAmounts.add(-1L);
     }
-    public void modify(Integer newAmount){
+    public void modify(Long newAmount){
         this.amount = newAmount;
         isModified = true;
         if(isCancelled){
@@ -63,11 +68,11 @@ public class Order{
         this.productID = productID;
     }
 
-    public Integer getAmount() {
+    public Long getAmount() {
         return amount;
     }
 
-    public void setAmount(Integer amount) {
+    public void setAmount(Long amount) {
         this.amount = amount;
     }
 
